@@ -407,38 +407,43 @@ export default function TreeViewModal({ tree, onClose }) {
             <p className="text-center text-sm text-slate-400 italic py-6">No members in this tree.</p>
           ) : (
             <div
-              style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
-              className="transition-transform duration-150"
+              className="transition-all duration-150"
+              style={{ width: canvasSize.width * zoomLevel, height: canvasSize.height * zoomLevel }}
             >
-              <div ref={canvasRef} className="relative" style={{ width: canvasSize.width, height: canvasSize.height }}>
-                <svg className="absolute inset-0 pointer-events-none" width={canvasSize.width} height={canvasSize.height} style={{ overflow: 'visible', zIndex: 0 }}>
-                  {connectors.map((d, i) => (
-                    <path key={i} d={d} fill="none" stroke="#ff8544" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-                  ))}
-                </svg>
+              <div
+                style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', width: canvasSize.width, height: canvasSize.height }}
+                className="transition-transform duration-150"
+              >
+                <div ref={canvasRef} className="relative" style={{ width: canvasSize.width, height: canvasSize.height }}>
+                  <svg className="absolute inset-0 pointer-events-none" width={canvasSize.width} height={canvasSize.height} style={{ overflow: 'visible', zIndex: 0 }}>
+                    {connectors.map((d, i) => (
+                      <path key={i} d={d} fill="none" stroke="#ff8544" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+                    ))}
+                  </svg>
 
-                {members.map((m) => {
-                  const pos = positions[m.id];
-                  if (!pos) return null;
-                  return (
-                    <div
-                      key={m.id}
-                      className="absolute"
-                      style={{ left: pos.x, top: pos.y, zIndex: 10 }}
-                    >
-                      <ViewPersonNode
-                        person={m}
-                        isHead={m.relationship === 'Head'}
-                        isSelected={m.id === selectedMember?.id}
-                        onClick={() => setSelectedMember(m)}
-                        registerRef={(el) => {
-                          if (el) nodeRefs.current.set(m.id, el);
-                          else nodeRefs.current.delete(m.id);
-                        }}
-                      />
-                    </div>
-                  );
-                })}
+                  {members.map((m) => {
+                    const pos = positions[m.id];
+                    if (!pos) return null;
+                    return (
+                      <div
+                        key={m.id}
+                        className="absolute"
+                        style={{ left: pos.x, top: pos.y, zIndex: 10 }}
+                      >
+                        <ViewPersonNode
+                          person={m}
+                          isHead={m.relationship === 'Head'}
+                          isSelected={m.id === selectedMember?.id}
+                          onClick={() => setSelectedMember(m)}
+                          registerRef={(el) => {
+                            if (el) nodeRefs.current.set(m.id, el);
+                            else nodeRefs.current.delete(m.id);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

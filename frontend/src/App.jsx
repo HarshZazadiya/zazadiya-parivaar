@@ -70,6 +70,9 @@ export default function App() {
 
   const villageCount = villages.length;
 
+  // Builder is a full-height screen; hide footer there so mobile has room.
+  const showFooter = activeTab !== 'builder';
+
   return (
     <div className="min-h-screen flex flex-col bg-saffron-50/40 text-slate-800">
       
@@ -164,34 +167,36 @@ export default function App() {
         />
       )}
 
-      <footer className="bg-slate-900 text-slate-300 border-t-4 border-t-saffron-500 py-12 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-saffron-500 text-white flex items-center justify-center text-2xl">
-                🚩
+      {showFooter && (
+        <footer className="bg-slate-900 text-slate-300 border-t-4 border-t-saffron-500 py-12 mt-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-saffron-500 text-white flex items-center justify-center text-2xl">
+                  🚩
+                </div>
+                <div>
+                  <h3 className="font-serif text-2xl font-bold text-white">Zazadiya Parivaar</h3>
+                  <p className="text-xs text-saffron-400 font-semibold tracking-wider uppercase">
+                    || શ્રી ગદાધારી હનુમાનજી પ્રસન્ન ||
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-serif text-2xl font-bold text-white">Zazadiya Parivaar</h3>
-                <p className="text-xs text-saffron-400 font-semibold tracking-wider uppercase">
-                  || શ્રી ગદાધારી હનુમાનજી પ્રસન્ન ||
-                </p>
-              </div>
+
+              <p className="text-xs text-slate-400 max-w-md">
+                Connecting 1500+ Zazadiya family members across {villageCount} native village{villageCount === 1 ? '' : 's'} in Gujarat & India. Preserving family heritage and genealogy for future generations.
+              </p>
             </div>
 
-            <p className="text-xs text-slate-400 max-w-md">
-              Connecting 1500+ Zazadiya family members across {villageCount} native village{villageCount === 1 ? '' : 's'} in Gujarat & India. Preserving family heritage and genealogy for future generations.
-            </p>
+            <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p>© {new Date().getFullYear()} Zazadiya Parivaar Trust. All Rights Reserved.</p>
+              <p className="text-yellow-400 font-serif">
+                Jai Shree Ram • Jai Hanuman
+              </p>
+            </div>
           </div>
-
-          <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p>© {new Date().getFullYear()} Zazadiya Parivaar Trust. All Rights Reserved.</p>
-            <p className="text-yellow-400 font-serif">
-              Jai Shree Ram • Jai Hanuman
-            </p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
     </div>
   );

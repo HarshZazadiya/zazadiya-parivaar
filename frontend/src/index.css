@@ -51,3 +51,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #ff5c00;
 }
+
+/* iOS Safari: prevent auto-zoom when focusing form fields on mobile */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

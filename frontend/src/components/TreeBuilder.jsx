@@ -8,6 +8,17 @@ import { compressImageFile } from '../utils/imageCompressor';
 
 export const displayRelationship = (rel) => (rel === 'Head' ? 'Main' : rel);
 
+/* Long-press / drag tuning for touch devices */
+const LONG_PRESS_MS = 350;
+const MOVE_CANCEL_PX = 8;
+
+/* Tab definitions — short labels used on very small screens */
+const SIDE_TABS = [
+  { id: 'Personal', long: 'Personal', short: 'Info' },
+  { id: 'Occupation & Contact', long: 'Occupation & Contact', short: 'Work' },
+  { id: 'Photo Upload', long: 'Photo Upload', short: 'Photo' },
+];
+
 /* ---------- Tidy tree layout ---------- */
 function buildTidyLayout(members) {
   const idSet = new Set(members.map((m) => m.id));
@@ -313,7 +324,6 @@ export default function TreeBuilder({ villages, initialTreeToEdit, onSuccess, on
         const h = initialTreeToEdit.members.find((m) => m.relationship === 'Head') || initialTreeToEdit.members[0];
         setSelectedPersonId(h.id);
       }
-      // Load saved positions from the server (if any)
       if (initialTreeToEdit.positions && typeof initialTreeToEdit.positions === 'object') {
         const loaded = {};
         Object.entries(initialTreeToEdit.positions).forEach(([id, p]) => {
@@ -358,47 +368,94 @@ export default function TreeBuilder({ villages, initialTreeToEdit, onSuccess, on
     if (e.button !== undefined && e.button !== 0) return;
     const pos = positions[memberId];
     if (!pos) return;
-    dragStateRef.current = {
+
+    const isTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
+
+    const ds = {
       id: memberId,
-      startX: e.clientX, startY: e.clientY,
-      origX: pos.x, origY: pos.y,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: pos.x,
+      origY: pos.y,
       moved: false,
+      isTouch,
+      longPressActive: !isTouch,
+      timer: null,
     };
-    setDraggingId(memberId);
+    dragStateRef.current = ds;
     suppressClickRef.current = false;
+
+    if (isTouch) {
+      ds.timer = setTimeout(() => {
+        const curr = dragStateRef.current;
+        if (!curr || curr !== ds || curr.moved) return;
+        curr.longPressActive = true;
+        suppressClickRef.current = true;
+        setDraggingId(memberId);
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate(15); } catch (_) { /* ignore */ }
+        }
+      }, LONG_PRESS_MS);
+    } else {
+      setDraggingId(memberId);
+    }
   };
 
   useEffect(() => {
-    if (!draggingId) return;
-    const onMove = (e) => {
+    const onPointerMove = (e) => {
       const ds = dragStateRef.current;
       if (!ds) return;
+
       const scale = zoomLevel > 0 ? zoomLevel : 1;
       const dx = (e.clientX - ds.startX) / scale;
       const dy = (e.clientY - ds.startY) / scale;
-      if (!ds.moved && Math.hypot(dx, dy) > 4) {
+      const dist = Math.hypot(dx, dy);
+
+      if (!ds.longPressActive) {
+        if (dist > MOVE_CANCEL_PX) {
+          if (ds.timer) clearTimeout(ds.timer);
+          dragStateRef.current = null;
+          setDraggingId(null);
+        }
+        return;
+      }
+
+      if (!ds.moved && dist > 2) {
         ds.moved = true;
         suppressClickRef.current = true;
       }
-      if (!ds.moved) return;
       setDraggedPositions((prev) => ({
         ...prev,
         [ds.id]: { x: ds.origX + dx, y: ds.origY + dy },
       }));
     };
-    const onUp = () => {
+
+    const onPointerUp = () => {
+      const ds = dragStateRef.current;
+      if (ds && ds.timer) clearTimeout(ds.timer);
       dragStateRef.current = null;
       setDraggingId(null);
     };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
+
+    const onTouchMove = (e) => {
+      const ds = dragStateRef.current;
+      if (ds && ds.isTouch && ds.longPressActive && e.cancelable) {
+        e.preventDefault();
+      }
     };
-  }, [draggingId, zoomLevel]);
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [zoomLevel]);
 
   const handleNodeClick = (id) => {
     if (suppressClickRef.current) {
@@ -515,7 +572,6 @@ export default function TreeBuilder({ villages, initialTreeToEdit, onSuccess, on
 
     setLoading(true);
     try {
-      // Merge auto + dragged into a single positions payload
       const finalPositions = {};
       Object.entries(positions).forEach(([id, p]) => {
         if (p && typeof p.x === 'number' && typeof p.y === 'number') {
@@ -594,46 +650,55 @@ export default function TreeBuilder({ villages, initialTreeToEdit, onSuccess, on
   return (
     <div className="bg-slate-100 flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 7rem)', minHeight: '520px' }}>
       <div className="lg:hidden flex bg-white border-b border-slate-200 shrink-0">
-        <button onClick={() => setMobileView('tree')} className={`flex-1 py-3 px-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${mobileView === 'tree' ? 'text-saffron-600 border-b-2 border-saffron-500 bg-saffron-50/40' : 'text-slate-500'}`}>
+        <button onClick={() => setMobileView('tree')} className={`flex-1 py-2.5 px-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${mobileView === 'tree' ? 'text-saffron-600 border-b-2 border-saffron-500 bg-saffron-50/40' : 'text-slate-500'}`}>
           <GitBranch className="w-4 h-4" /> Tree ({members.length})
         </button>
-        <button onClick={() => setMobileView('edit')} className={`flex-1 py-3 px-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors truncate ${mobileView === 'edit' ? 'text-saffron-600 border-b-2 border-saffron-500 bg-saffron-50/40' : 'text-slate-500'}`}>
+        <button onClick={() => setMobileView('edit')} className={`flex-1 py-2.5 px-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors truncate ${mobileView === 'edit' ? 'text-saffron-600 border-b-2 border-saffron-500 bg-saffron-50/40' : 'text-slate-500'}`}>
           <Edit3 className="w-4 h-4 shrink-0" />
-          <span className="truncate">Editing: {selectedPerson?.full_name?.slice(0, 16) || 'Person'}</span>
+          <span className="truncate">Edit: {selectedPerson?.full_name?.slice(0, 16) || 'Person'}</span>
         </button>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         <div className={`w-full lg:w-96 lg:shrink-0 bg-white lg:border-r border-slate-200 flex-col overflow-hidden ${mobileView === 'edit' ? 'flex' : 'hidden'} lg:flex`}>
-          <div className="p-4 sm:p-5 bg-gradient-to-r from-saffron-50 to-amber-50 border-b border-saffron-100 shrink-0">
-            <button onClick={() => setMobileView('tree')} className="lg:hidden mb-3 inline-flex items-center gap-1 text-xs font-bold text-saffron-700 hover:text-saffron-900">
+          {/* Compact header on mobile; original on sm+ */}
+          <div className="p-3 sm:p-5 bg-gradient-to-r from-saffron-50 to-amber-50 border-b border-saffron-100 shrink-0">
+            <button onClick={() => setMobileView('tree')} className="lg:hidden mb-2 inline-flex items-center gap-1 text-xs font-bold text-saffron-700 hover:text-saffron-900">
               <ArrowLeft className="w-3.5 h-3.5" /> Back to Tree
             </button>
             <p className="text-[10px] font-bold text-saffron-700 uppercase tracking-widest mb-2">● Currently Editing</p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <div className="relative group shrink-0">
-                <div className="w-16 h-16 rounded-2xl bg-white border-2 border-saffron-300 overflow-hidden flex items-center justify-center text-3xl shadow-sm">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white border-2 border-saffron-300 overflow-hidden flex items-center justify-center text-2xl sm:text-3xl shadow-sm">
                   {selectedPerson?.photo_url ? (<img src={selectedPerson.photo_url} alt={selectedPerson.full_name} className="w-full h-full object-cover" />) : (<span>{selectedPerson?.gender === 'Female' ? '👩' : '👨'}</span>)}
                 </div>
-                <label className="absolute -bottom-1 -right-1 bg-saffron-500 text-white p-1.5 rounded-full cursor-pointer shadow-md hover:bg-saffron-600">
-                  <Camera className="w-3.5 h-3.5" />
+                <label className="absolute -bottom-1 -right-1 bg-saffron-500 text-white p-1 sm:p-1.5 rounded-full cursor-pointer shadow-md hover:bg-saffron-600">
+                  <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(selectedPerson.id, e.target.files[0])} />
                 </label>
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-serif text-lg sm:text-xl font-bold text-slate-900 truncate">{selectedPerson?.full_name || 'Person Name'}</h3>
-                <span className="inline-block text-xs font-bold text-saffron-800 bg-saffron-100 px-2.5 py-0.5 rounded-full uppercase mt-1">{displayRelationship(selectedPerson?.relationship) || 'Member'}</span>
+                <h3 className="font-serif text-base sm:text-xl font-bold text-slate-900 truncate">{selectedPerson?.full_name || 'Person Name'}</h3>
+                <span className="inline-block text-[10px] sm:text-xs font-bold text-saffron-800 bg-saffron-100 px-2 py-0.5 rounded-full uppercase mt-0.5 sm:mt-1">{displayRelationship(selectedPerson?.relationship) || 'Member'}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-bold shrink-0 overflow-x-auto">
-            {['Personal', 'Occupation & Contact', 'Photo Upload'].map((tab) => (
-              <button key={tab} onClick={() => setActiveSideTab(tab)} className={`flex-1 min-w-[110px] py-3 text-center transition-colors whitespace-nowrap px-2 ${activeSideTab === tab ? 'bg-white text-saffron-600 border-b-2 border-saffron-500 font-bold' : 'text-slate-500 hover:text-slate-800'}`}>{tab}</button>
+          {/* Tabs — short labels on mobile so they never overlap, full labels from sm+ */}
+          <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-bold shrink-0">
+            {SIDE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSideTab(tab.id)}
+                className={`flex-1 py-3 text-center transition-colors whitespace-nowrap px-2 ${activeSideTab === tab.id ? 'bg-white text-saffron-600 border-b-2 border-saffron-500 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <span className="hidden sm:inline">{tab.long}</span>
+                <span className="sm:hidden">{tab.short}</span>
+              </button>
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3.5 sm:space-y-4">
             {activeSideTab === 'Personal' && (
               <>
                 <div>
@@ -736,6 +801,7 @@ export default function TreeBuilder({ villages, initialTreeToEdit, onSuccess, on
               <p className="text-xs text-slate-500 mt-0.5">
                 Total Members: <strong className="text-saffron-600 font-bold">{members.length}</strong>
                 <span className="hidden sm:inline ml-3 text-slate-400"><Move className="inline w-3 h-3 mr-1" /> Drag any card to rearrange</span>
+                <span className="sm:hidden ml-3 text-slate-400">Long-press a card to drag</span>
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -752,39 +818,47 @@ export default function TreeBuilder({ villages, initialTreeToEdit, onSuccess, on
           </div>
 
           <div className="flex-1 overflow-auto p-4 sm:p-8 min-h-0">
-            <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }} className="transition-transform duration-200">
-              <div ref={canvasRef} className="relative" style={{ width: canvasSize.width, height: canvasSize.height }}>
-                <svg className="absolute inset-0 pointer-events-none" width={canvasSize.width} height={canvasSize.height} style={{ overflow: 'visible', zIndex: 0 }}>
-                  {connectors.map((d, i) => (
-                    <path key={i} d={d} fill="none" stroke="#ff8544" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-                  ))}
-                </svg>
+            <div
+              className="transition-all duration-200"
+              style={{ width: canvasSize.width * zoomLevel, height: canvasSize.height * zoomLevel }}
+            >
+              <div
+                style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', width: canvasSize.width, height: canvasSize.height }}
+                className="transition-transform duration-200"
+              >
+                <div ref={canvasRef} className="relative" style={{ width: canvasSize.width, height: canvasSize.height }}>
+                  <svg className="absolute inset-0 pointer-events-none" width={canvasSize.width} height={canvasSize.height} style={{ overflow: 'visible', zIndex: 0 }}>
+                    {connectors.map((d, i) => (
+                      <path key={i} d={d} fill="none" stroke="#ff8544" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+                    ))}
+                  </svg>
 
-                {members.map((m) => {
-                  const pos = positions[m.id];
-                  if (!pos) return null;
-                  const isDragging = draggingId === m.id;
-                  return (
-                    <div
-                      key={m.id}
-                      className="absolute"
-                      style={{ left: pos.x, top: pos.y, zIndex: isDragging ? 30 : 10, touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab' }}
-                      onPointerDown={(e) => handlePointerDown(e, m.id)}
-                    >
-                      <CanvasPersonNode
-                        person={m}
-                        isHead={m.relationship === 'Head'}
-                        isSelected={m.id === selectedPersonId}
-                        isDragging={isDragging}
-                        onClick={() => handleNodeClick(m.id)}
-                        registerRef={(el) => {
-                          if (el) nodeRefs.current.set(m.id, el);
-                          else nodeRefs.current.delete(m.id);
-                        }}
-                      />
-                    </div>
-                  );
-                })}
+                  {members.map((m) => {
+                    const pos = positions[m.id];
+                    if (!pos) return null;
+                    const isDragging = draggingId === m.id;
+                    return (
+                      <div
+                        key={m.id}
+                        className="absolute"
+                        style={{ left: pos.x, top: pos.y, zIndex: isDragging ? 30 : 10, touchAction: 'manipulation', cursor: isDragging ? 'grabbing' : 'grab' }}
+                        onPointerDown={(e) => handlePointerDown(e, m.id)}
+                      >
+                        <CanvasPersonNode
+                          person={m}
+                          isHead={m.relationship === 'Head'}
+                          isSelected={m.id === selectedPersonId}
+                          isDragging={isDragging}
+                          onClick={() => handleNodeClick(m.id)}
+                          registerRef={(el) => {
+                            if (el) nodeRefs.current.set(m.id, el);
+                            else nodeRefs.current.delete(m.id);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
