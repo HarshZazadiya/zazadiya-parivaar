@@ -7,16 +7,14 @@ export default function AuthModal({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Login Form State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // Register Form State
   const [regFullName, setRegFullName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regPhone, setRegPhone] = useState('');
-  const [regVillage, setRegVillage] = useState('Savarkundla');
+  const [regVillage, setRegVillage] = useState('');
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -57,7 +55,6 @@ export default function AuthModal({ onClose, onSuccess }) {
         }),
       });
 
-      // Auto login after registration
       const loginData = await apiFetch('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: regEmail, password: regPassword }),
@@ -78,7 +75,6 @@ export default function AuthModal({ onClose, onSuccess }) {
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border border-saffron-200 animate-in fade-in zoom-in-95">
         
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
@@ -86,10 +82,9 @@ export default function AuthModal({ onClose, onSuccess }) {
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal Header */}
         <div className="text-center space-y-2 mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-saffron-600 to-saffron-400 text-white flex items-center justify-center text-3xl mx-auto shadow-saffron-glow">
-            🚩
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-saffron-600 to-saffron-400 text-white flex items-center justify-center text-3xl mx-auto shadow-saffron-glow font-serif leading-none">
+            ॐ
           </div>
           <h3 className="font-serif text-2xl font-bold text-slate-900">
             {isRegister ? 'Register Account' : 'Member Login'}
@@ -99,7 +94,6 @@ export default function AuthModal({ onClose, onSuccess }) {
           </p>
         </div>
 
-        {/* Auth Mode Toggle */}
         <div className="flex bg-slate-100 p-1 rounded-2xl mb-6">
           <button
             type="button"
@@ -127,7 +121,6 @@ export default function AuthModal({ onClose, onSuccess }) {
           </div>
         )}
 
-        {/* Login Form */}
         {!isRegister ? (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
@@ -174,7 +167,6 @@ export default function AuthModal({ onClose, onSuccess }) {
             </button>
           </form>
         ) : (
-          /* Register Form */
           <form onSubmit={handleRegisterSubmit} className="space-y-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">

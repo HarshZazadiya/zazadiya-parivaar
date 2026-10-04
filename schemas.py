@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
@@ -40,25 +40,9 @@ class UserResponse(BaseModel):
 # FAMILY MEMBER SCHEMAS
 # =========================================================
 class FamilyMemberCreate(BaseModel):
-    id: Optional[int] = None  # Temporary or existing ID for relationship linking
+    id: Optional[int] = None
     parent_member_id: Optional[int] = None
-    full_name: str
-    gender: str
-    relationship: str  # Head, Parent, Spouse, Child, Sibling
-    date_of_birth: Optional[str] = None
-    village_name: str
-    current_address: Optional[str] = None
-    education: Optional[str] = None
-    current_business: Optional[str] = None
-    business_address: Optional[str] = None
-    email_address: Optional[str] = None
-    contact_number: Optional[str] = None
-    notes: Optional[str] = None
-
-class FamilyMemberResponse(BaseModel):
-    id: int
-    tree_id: int
-    parent_member_id: Optional[int] = None
+    spouse_of_id: Optional[int] = None
     full_name: str
     gender: str
     relationship: str
@@ -70,6 +54,26 @@ class FamilyMemberResponse(BaseModel):
     business_address: Optional[str] = None
     email_address: Optional[str] = None
     contact_number: Optional[str] = None
+    photo_url: Optional[str] = None
+    notes: Optional[str] = None
+
+class FamilyMemberResponse(BaseModel):
+    id: int
+    tree_id: int
+    parent_member_id: Optional[int] = None
+    spouse_of_id: Optional[int] = None
+    full_name: str
+    gender: str
+    relationship: str
+    date_of_birth: Optional[str] = None
+    village_name: str
+    current_address: Optional[str] = None
+    education: Optional[str] = None
+    current_business: Optional[str] = None
+    business_address: Optional[str] = None
+    email_address: Optional[str] = None
+    contact_number: Optional[str] = None
+    photo_url: Optional[str] = None
     notes: Optional[str] = None
 
     class Config:
@@ -83,9 +87,11 @@ class FamilyTreeCreate(BaseModel):
     head_name: str
     village_name: str
     members: List[FamilyMemberCreate]
+    # NEW: node positions, keyed by member id (as strings)
+    positions: Optional[Dict[str, Dict[str, float]]] = None
 
 class FamilyTreeStatusUpdate(BaseModel):
-    status: str  # 'approved', 'rejected', 'pending'
+    status: str
     admin_notes: Optional[str] = None
 
 class FamilyTreeResponse(BaseModel):
@@ -96,6 +102,7 @@ class FamilyTreeResponse(BaseModel):
     village_name: str
     status: str
     admin_notes: Optional[str] = None
+    positions: Optional[Dict[str, Dict[str, float]]] = None
     created_at: datetime
     updated_at: datetime
     members: List[FamilyMemberResponse] = []
@@ -111,7 +118,6 @@ class VillageResponse(BaseModel):
     name: str
     district: Optional[str] = None
     state: str = "Gujarat"
-    description: Optional[str] = None
     member_count: int = 0
     tree_count: int = 0
 

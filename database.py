@@ -2,22 +2,32 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# PostgreSQL / Supabase connection standard configuration
-# Example Supabase URL: postgresql://postgres.xxxx:password@aws-0-region.pooler.supabase.com:6543/postgres
-DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL") or "sqlite:///./zazadiya_parivaar.db"
+# PostgreSQL connection string for local Docker container / Supabase / Render
+# Local Docker Postgres: postgresql://postgres:postgrespassword@localhost:5432/zazadiya_db
+# Supabase Production: set DATABASE_URL or SUPABASE_DB_URL in environment variables
+DATABASE_URL = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("SUPABASE_DB_URL")
+    or "postgresql://postgres:postgrespassword@localhost:5432/zazadiya_db"
+)
 
 # Fix legacy 'postgres://' schema prefix if present from Heroku/Supabase
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# SQLite check
-if "sqlite" in DATABASE_URL:
+try:
+    if "sqlite" in DATABASE_URL:
+        engine = create_engine(
+            DATABASE_URL, connect_args={"check_same_thread": False}
+        )
+    else:
+        engine = create_engine(
+            DATABASE_URL, pool_pre_ping=True, pool_size=10, max_overflow=20
+        )
+except Exception:
+    # Fallback to local SQLite if Postgres container is not running yet
     engine = create_engine(
-        DATABASE_URL, connect_args={"check_same_thread": False}
-    )
-else:
-    engine = create_engine(
-        DATABASE_URL, pool_pre_ping=True, pool_size=10, max_overflow=20
+        "sqlite:///./zazadiya_parivaar.db", connect_args={"check_same_thread": False}
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

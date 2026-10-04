@@ -1,5 +1,6 @@
+import os
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
@@ -12,6 +13,8 @@ router = APIRouter(
     tags=["Admin Dashboard"]
 )
 
+ADMIN_DELETE_KEY = os.getenv("ADMIN_DELETE_KEY", "ZAZADIYA_DELETE_2026")
+
 
 @router.get("/stats", response_model=DashboardStats)
 async def get_dashboard_stats(admin: admin_dependency, db: db_dependency):
@@ -20,13 +23,14 @@ async def get_dashboard_stats(admin: admin_dependency, db: db_dependency):
     """
     total_families = db.query(FamilyTree).filter(FamilyTree.status == "approved").count()
     total_members = db.query(FamilyMember).join(FamilyTree).filter(FamilyTree.status == "approved").count()
-    total_villages = db.query(func.count(func.distinct(FamilyMember.village_name))).join(FamilyTree).filter(FamilyTree.status == "approved").scalar() or 22
+    # Count admin-managed villages (dynamic — no hardcoded fallback)
+    total_villages = db.query(func.count(Village.id)).scalar() or 0
     pending_approvals = db.query(FamilyTree).filter(FamilyTree.status == "pending").count()
 
     return DashboardStats(
         total_families=total_families,
         total_members=total_members,
-        total_villages=max(total_villages, 22),
+        total_villages=total_villages,
         pending_approvals=pending_approvals
     )
 
@@ -64,6 +68,31 @@ async def update_tree_status(
     db.commit()
     db.refresh(tree)
     return tree
+
+
+@router.delete("/trees/{tree_id}")
+async def delete_family_tree(
+    tree_id: int,
+    admin: admin_dependency,
+    db: db_dependency,
+    security_key: str = Query(..., description="Special Admin Security Key required to delete entries")
+):
+    """
+    Delete a family tree entry. Requires Special Admin Security Key.
+    """
+    if security_key.strip() != ADMIN_DELETE_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid Special Admin Security Key. Deletion denied."
+        )
+
+    tree = db.query(FamilyTree).filter(FamilyTree.id == tree_id).first()
+    if not tree:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family tree not found")
+
+    db.delete(tree)
+    db.commit()
+    return {"message": f"Family tree '{tree.family_name}' deleted successfully by admin."}
 
 
 @router.get("/users", response_model=List[UserResponse])

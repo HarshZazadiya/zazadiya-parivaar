@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Users, FolderTree, Search, LogIn, LogOut, Menu, X, PlusCircle, LayoutDashboard, MapPin } from 'lucide-react';
+import { Shield, Users, FolderTree, Search, LogIn, LogOut, Menu, X, PlusCircle, LayoutDashboard, MapPin, BookOpen } from 'lucide-react';
 import { getAuthToken, getCurrentUser, removeAuthToken } from '../utils/api';
 
 export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
@@ -15,10 +15,17 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Shield },
-    { id: 'villages', label: '22 Villages', icon: MapPin },
+    { id: 'villages', label: 'Villages', icon: MapPin },
     { id: 'directory', label: 'Family Directory', icon: Search },
-    { id: 'builder', label: 'Add Family Tree', icon: PlusCircle },
   ];
+
+  if (!user || user.role !== 'admin') {
+    navItems.push({ id: 'builder', label: 'Add Family Tree', icon: PlusCircle });
+  }
+
+  if (token && user && user.role !== 'admin') {
+    navItems.push({ id: 'my-trees', label: 'My Trees', icon: BookOpen });
+  }
 
   if (user && user.role === 'admin') {
     navItems.push({ id: 'admin', label: 'Admin Dashboard', icon: LayoutDashboard });
@@ -26,11 +33,10 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-saffron-100 shadow-sm">
-      {/* Top Divine Mantra Header */}
       <div className="bg-gradient-to-r from-saffron-600 via-saffron-500 to-saffron-700 text-white text-xs py-1.5 px-4 text-center font-medium tracking-wide flex items-center justify-center gap-3">
-        <span className="text-yellow-300 font-serif font-bold text-sm">🚩 || શ્રી હનુમાનજી પ્રસન્ન ||</span>
+        <span className="text-yellow-300 font-serif font-bold text-sm">ॐ || શ્રી હનુમાનજી પ્રસન્ન ||</span>
         <span className="hidden sm:inline text-saffron-100">|</span>
-        <span className="hidden sm:inline">ઝાઝડીયા પરિવાર - ૨૨ ગામ સંગઠન પોર્ટલ</span>
+        <span className="hidden sm:inline">ઝાઝડીયા પરિવાર - ગામ સંગઠન પોર્ટલ</span>
         <span className="hidden md:inline text-saffron-100">|</span>
         <span className="hidden md:inline text-yellow-200">Jai Shree Ram • Lord Hanumanji Blessings</span>
       </div>
@@ -38,13 +44,12 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           
-          {/* Brand Logo */}
           <div 
             onClick={() => setActiveTab('home')}
             className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-saffron-600 to-saffron-400 flex items-center justify-center text-white text-2xl shadow-saffron-glow group-hover:scale-105 transition-transform duration-300">
-              🚩
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-saffron-600 to-saffron-400 flex items-center justify-center text-white text-3xl shadow-saffron-glow group-hover:scale-105 transition-transform duration-300 font-serif leading-none">
+              ॐ
             </div>
             <div>
               <h1 className="font-serif text-2xl font-bold text-slate-900 tracking-tight leading-none group-hover:text-saffron-600 transition-colors">
@@ -56,7 +61,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
             </div>
           </div>
 
-          {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-1 bg-saffron-50/70 p-1.5 rounded-2xl border border-saffron-100/80">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -78,7 +82,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
             })}
           </nav>
 
-          {/* User Auth Controls */}
           <div className="hidden md:flex items-center gap-3">
             {token && user ? (
               <div className="flex items-center gap-3 bg-saffron-50 px-3.5 py-1.5 rounded-xl border border-saffron-200">
@@ -105,7 +108,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -117,7 +119,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAuth }) {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-b border-saffron-100 px-4 pt-2 pb-6 space-y-2">
           {navItems.map((item) => {

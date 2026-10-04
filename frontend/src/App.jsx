@@ -7,6 +7,7 @@ import TreeBuilder from './components/TreeBuilder';
 import TreeViewModal from './components/TreeViewModal';
 import AdminDashboard from './components/AdminDashboard';
 import AuthModal from './components/AuthModal';
+import MyTrees from './components/MyTrees';
 import { apiFetch, getCurrentUser } from './utils/api';
 
 export default function App() {
@@ -19,8 +20,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVillageFilter, setSelectedVillageFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [editingTree, setEditingTree] = useState(null);
 
-  // Initial Data Fetch
   const loadInitialData = async () => {
     setLoading(true);
     try {
@@ -48,7 +49,6 @@ export default function App() {
       const t = await apiFetch(`/family/trees/${treeId}`);
       setActiveTreeModal(t);
     } catch (err) {
-      // Fallback find in local state
       const localT = trees.find((item) => item.id === treeId);
       if (localT) {
         setActiveTreeModal(localT);
@@ -68,21 +68,22 @@ export default function App() {
     setActiveTab('directory');
   };
 
+  const villageCount = villages.length;
+
   return (
     <div className="min-h-screen flex flex-col bg-saffron-50/40 text-slate-800">
       
-      {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenAuth={() => setAuthModalOpen(true)}
       />
 
-      {/* Main Content Router */}
       <main className="flex-1">
         {activeTab === 'home' && (
           <>
             <HeroSection
+              villages={villages}
               onExploreDirectory={() => setActiveTab('directory')}
               onBuildTree={() => setActiveTab('builder')}
               onExploreVillages={() => setActiveTab('villages')}
@@ -116,9 +117,27 @@ export default function App() {
         {activeTab === 'builder' && (
           <TreeBuilder
             villages={villages}
+            initialTreeToEdit={editingTree}
             onSuccess={() => {
+              setEditingTree(null);
               loadInitialData();
-              setActiveTab('directory');
+              setActiveTab('my-trees');
+            }}
+            onOpenAuth={() => setAuthModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'my-trees' && (
+          <MyTrees
+            villages={villages}
+            onViewTree={handleInspectTree}
+            onEditTree={(tree) => {
+              setEditingTree(tree);
+              setActiveTab('builder');
+            }}
+            onBuildNew={() => {
+              setEditingTree(null);
+              setActiveTab('builder');
             }}
             onOpenAuth={() => setAuthModalOpen(true)}
           />
@@ -131,7 +150,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Tree Viewer Modal */}
       {activeTreeModal && (
         <TreeViewModal
           tree={activeTreeModal}
@@ -139,7 +157,6 @@ export default function App() {
         />
       )}
 
-      {/* Auth Modal */}
       {authModalOpen && (
         <AuthModal
           onClose={() => setAuthModalOpen(false)}
@@ -147,7 +164,6 @@ export default function App() {
         />
       )}
 
-      {/* Footer */}
       <footer className="bg-slate-900 text-slate-300 border-t-4 border-t-saffron-500 py-12 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
@@ -164,14 +180,14 @@ export default function App() {
             </div>
 
             <p className="text-xs text-slate-400 max-w-md">
-              Connecting 1500+ Zazadiya family members across 22 native villages in Gujarat & India. Preserving family heritage and genealogy for future generations.
+              Connecting 1500+ Zazadiya family members across {villageCount} native village{villageCount === 1 ? '' : 's'} in Gujarat & India. Preserving family heritage and genealogy for future generations.
             </p>
           </div>
 
           <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p>© {new Date().getFullYear()} Zazadiya Parivaar Trust. All Rights Reserved.</p>
             <p className="text-yellow-400 font-serif">
-              Jai Shree Ram • Lord Hanumanji Blessings
+              Jai Shree Ram • Jai Hanuman
             </p>
           </div>
         </div>

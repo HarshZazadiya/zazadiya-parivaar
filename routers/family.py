@@ -13,31 +13,44 @@ router = APIRouter(
 )
 
 
+def _remap_positions(raw_positions, id_map):
+    """
+    Remap positions keyed by client-side ids to server-side ids.
+    Input format: { "<client_id>": {"x": 100, "y": 200}, ... }
+    Output format: { "<server_id>": {"x": 100, "y": 200}, ... }
+    """
+    if not raw_positions:
+        return None
+    remapped = {}
+    for key, pos in raw_positions.items():
+        try:
+            client_id = int(key)
+        except (TypeError, ValueError):
+            continue
+        server_id = id_map.get(client_id)
+        if server_id is None:
+            continue
+        remapped[str(server_id)] = {"x": float(pos.get("x", 0)), "y": float(pos.get("y", 0))}
+    return remapped or None
+
+
 @router.post("/trees", response_model=FamilyTreeResponse, status_code=status.HTTP_201_CREATED)
 async def create_family_tree(
     tree_data: FamilyTreeCreate,
     current_user: user_dependency,
     db: db_dependency
 ):
-    """
-    Create and submit a new family tree with head and family members.
-    Status defaults to 'pending' for admin review.
-    """
-    # Create the family tree record
     new_tree = FamilyTree(
         user_id=current_user.id,
         family_name=tree_data.family_name.strip(),
         head_name=tree_data.head_name.strip(),
         village_name=tree_data.village_name.strip(),
-        status="pending"
+        status="pending",
     )
     db.add(new_tree)
-    db.flush()  # to get new_tree.id
+    db.flush()
 
-    # Mapping of temporary frontend ID to created DB ID for parent-child relationship linking
     id_map = {}
-
-    # First pass: Create member entities
     created_members = []
     for member_input in tree_data.members:
         member = FamilyMember(
@@ -53,24 +66,91 @@ async def create_family_tree(
             business_address=member_input.business_address,
             email_address=member_input.email_address,
             contact_number=member_input.contact_number,
-            notes=member_input.notes
+            photo_url=member_input.photo_url,
+            notes=member_input.notes,
         )
         db.add(member)
         db.flush()
 
         if member_input.id:
             id_map[member_input.id] = member.id
-        
+
         created_members.append((member, member_input))
 
-    # Second pass: Link parent_member_id if provided
     for member, member_input in created_members:
         if member_input.parent_member_id and member_input.parent_member_id in id_map:
             member.parent_member_id = id_map[member_input.parent_member_id]
+        if member_input.spouse_of_id and member_input.spouse_of_id in id_map:
+            member.spouse_of_id = id_map[member_input.spouse_of_id]
+
+    # Save positions, remapped from client ids to server ids
+    new_tree.positions = _remap_positions(tree_data.positions, id_map)
 
     db.commit()
     db.refresh(new_tree)
     return new_tree
+
+
+@router.put("/trees/{tree_id}", response_model=FamilyTreeResponse)
+async def update_family_tree(
+    tree_id: int,
+    tree_data: FamilyTreeCreate,
+    current_user: user_dependency,
+    db: db_dependency
+):
+    existing_tree = db.query(FamilyTree).filter(FamilyTree.id == tree_id).first()
+    if not existing_tree:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family tree not found")
+
+    if existing_tree.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to edit this tree.")
+
+    existing_tree.family_name = tree_data.family_name.strip()
+    existing_tree.head_name = tree_data.head_name.strip()
+    existing_tree.village_name = tree_data.village_name.strip()
+    existing_tree.status = "pending"
+
+    db.query(FamilyMember).filter(FamilyMember.tree_id == tree_id).delete()
+    db.flush()
+
+    id_map = {}
+    created_members = []
+    for member_input in tree_data.members:
+        member = FamilyMember(
+            tree_id=existing_tree.id,
+            full_name=member_input.full_name.strip(),
+            gender=member_input.gender,
+            relationship=member_input.relationship,
+            date_of_birth=member_input.date_of_birth,
+            village_name=member_input.village_name.strip(),
+            current_address=member_input.current_address,
+            education=member_input.education,
+            current_business=member_input.current_business,
+            business_address=member_input.business_address,
+            email_address=member_input.email_address,
+            contact_number=member_input.contact_number,
+            photo_url=member_input.photo_url,
+            notes=member_input.notes,
+        )
+        db.add(member)
+        db.flush()
+
+        if member_input.id:
+            id_map[member_input.id] = member.id
+
+        created_members.append((member, member_input))
+
+    for member, member_input in created_members:
+        if member_input.parent_member_id and member_input.parent_member_id in id_map:
+            member.parent_member_id = id_map[member_input.parent_member_id]
+        if member_input.spouse_of_id and member_input.spouse_of_id in id_map:
+            member.spouse_of_id = id_map[member_input.spouse_of_id]
+
+    existing_tree.positions = _remap_positions(tree_data.positions, id_map)
+
+    db.commit()
+    db.refresh(existing_tree)
+    return existing_tree
 
 
 @router.get("/trees", response_model=List[FamilyTreeResponse])
@@ -80,13 +160,8 @@ async def list_family_trees(
     search: Optional[str] = Query(None, description="Search by family head name or family title"),
     current_user: Optional[User] = Depends(get_optional_current_user)
 ):
-    """
-    List family trees. Visitors/Users see approved trees.
-    Admins see all trees.
-    """
     query = db.query(FamilyTree)
 
-    # Show only approved trees for general users, unless user is admin
     if not current_user or current_user.role != "admin":
         query = query.filter(FamilyTree.status == "approved")
 
@@ -111,9 +186,6 @@ async def list_user_trees(
     current_user: user_dependency,
     db: db_dependency
 ):
-    """
-    Get all family trees created by the logged-in user.
-    """
     trees = db.query(FamilyTree).filter(FamilyTree.user_id == current_user.id).order_by(FamilyTree.created_at.desc()).all()
     return trees
 
@@ -124,14 +196,10 @@ async def get_family_tree(
     db: db_dependency,
     current_user: Optional[User] = Depends(get_optional_current_user)
 ):
-    """
-    Get family tree by ID with full member node list.
-    """
     tree = db.query(FamilyTree).filter(FamilyTree.id == tree_id).first()
     if not tree:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family tree not found")
 
-    # If pending/rejected, only owner or admin can view
     if tree.status != "approved":
         if not current_user or (current_user.id != tree.user_id and current_user.role != "admin"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This family tree is under admin review.")
@@ -148,10 +216,6 @@ async def search_family_members(
     education: Optional[str] = Query(None, description="Filter by Education"),
     limit: int = Query(100, ge=1, le=1000)
 ):
-    """
-    Search and filter family members across all approved family trees.
-    """
-    # Join with FamilyTree to ensure we only search approved family trees
     query = db.query(FamilyMember).join(FamilyTree).filter(FamilyTree.status == "approved")
 
     if village_name and village_name.strip():
