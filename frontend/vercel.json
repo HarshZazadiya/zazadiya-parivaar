@@ -1,9 +1,5 @@
 {
   "rewrites": [
-    { "source": "/auth/(.*)", "destination": "http://localhost:8000/auth/$1" },
-    { "source": "/family/(.*)", "destination": "http://localhost:8000/family/$1" },
-    { "source": "/admin/(.*)", "destination": "http://localhost:8000/admin/$1" },
-    { "source": "/villages/(.*)", "destination": "http://localhost:8000/villages/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
