@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom Hanumanji Gradient Backgrounds & Decorative UI styles */
+.bg-hanuman-gradient {
+  background: linear-gradient(135deg, #ff5c00 0%, #e64a00 50%, #982f07 100%);
+}
+
+.bg-hanuman-light {
+  background: linear-gradient(180deg, #fff5ed 0%, #ffffff 100%);
+}
+
+.text-gradient-saffron {
+  background: linear-gradient(135deg, #ff5c00 0%, #be3800 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 92, 0, 0.12);
+}
+
+.glass-card-orange {
+  background: rgba(255, 92, 0, 0.04);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 92, 0, 0.18);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #fff5ed;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffaf7e;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ff5c00;
+}
